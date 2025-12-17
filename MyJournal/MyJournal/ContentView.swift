@@ -5,8 +5,28 @@
 //  Created by Rahil Gandhi on 2025-12-16.
 //
 
+//
+//  ContentView.swift
+//  MyJournal
+//
+//  Created by Rahil Gandhi on 2025-12-16.
+//
+
 import SwiftUI
 import CoreData
+
+// Date formatter for displaying today's date under the title
+private let entryDateTimeFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium   // Dec 10, 2025
+    formatter.timeStyle = .short    // 9:42 PM
+    return formatter
+}()
+private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .full  // e.g. Monday, December 16, 2025
+    return formatter
+}()
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -32,11 +52,11 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             VStack {
-                // Label + Divider above mood picker
-                
-
+                Spacer()
+                Spacer()
                 // Emoji mood picker
                 HStack {
+                    
                     Spacer()
                     ForEach(1...5, id: \.self) { mood in
                         Text(moodEmoji(for: mood))
@@ -77,9 +97,12 @@ struct ContentView: View {
                         ForEach(filteredEntries) { entry in
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
-                                    Text(entry.date ?? Date(), style: .time)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
+                                    if let entryDate = entry.date {
+                                        Text(entryDate, formatter: entryDateTimeFormatter)
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+
 
                                     Spacer()
 
@@ -95,14 +118,24 @@ struct ContentView: View {
                     }
                 }
             }
-            
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Daily Journal")
-                        .font(.largeTitle)
-                        .bold()
-                        .foregroundColor(.primary)
+                    VStack(spacing: 2) {
+                        Spacer()
+                        Text("Daily Journal")
+                            .font(.largeTitle)
+                            .bold()
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Text(selectedDate, formatter: dateFormatter)
+                            .font(.headline)
+                            .bold()
+                            .foregroundColor(.primary)
+                    }
+                    
                 }
+                
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -194,7 +227,7 @@ struct CalendarSheet: View {
     }
 }
 
-
 #Preview {
     ContentView()
 }
+
