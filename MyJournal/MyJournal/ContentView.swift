@@ -15,192 +15,26 @@
 import SwiftUI
 import CoreData
 
-// Date formatter for displaying today's date under the title
+// Formatter for written timestamp
 private let entryDateTimeFormatter: DateFormatter = {
     let formatter = DateFormatter()
-    formatter.dateStyle = .medium   // Dec 10, 2025
-    formatter.timeStyle = .short    // 9:42 PM
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
     return formatter
 }()
+
+// Formatter for header date
 private let dateFormatter: DateFormatter = {
     let formatter = DateFormatter()
-    formatter.dateStyle = .full  // e.g. Monday, December 16, 2025
+    formatter.dateStyle = .full
     return formatter
 }()
 
-struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        entity: Entry.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \Entry.date, ascending: false)]
-    ) private var allEntries: FetchedResults<Entry>
-
-    @State private var journalText: String = ""
-    @State private var selectedMood: Int16 = 3  // Default mood rating (1 to 5)
-
-    @State private var selectedDate: Date = Date()
-    @State private var isShowingCalendar = false
-
-    private var filteredEntries: [Entry] {
-        allEntries.filter { entry in
-            guard let entryDate = entry.date else { return false }
-            return Calendar.current.isDate(entryDate, inSameDayAs: selectedDate)
-        }
-    }
-
-    var body: some View {
-        NavigationView {
-            VStack {
-                Spacer()
-                Spacer()
-                // Emoji mood picker
-                HStack {
-                    
-                    Spacer()
-                    ForEach(1...5, id: \.self) { mood in
-                        Text(moodEmoji(for: mood))
-                            .font(.largeTitle)
-                            .opacity(selectedMood == mood ? 1.0 : 0.5)  // Dim unselected emojis
-                            .onTapGesture {
-                                selectedMood = Int16(mood)
-                            }
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal)
-
-                // Text editor for journal entry
-                TextEditor(text: $journalText)
-                    .padding()
-                    .border(Color.gray, width: 1)
-                    .frame(height: 350)
-
-                // Save button
-                Button(action: saveEntry) {
-                    Text("Save Entry")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(journalText.isEmpty ? Color.gray : Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
-                .disabled(journalText.isEmpty)
-                .padding(.horizontal)
-
-                // List of entries filtered by selected date
-                List {
-                    if filteredEntries.isEmpty {
-                        Text("No entries for this day.")
-                            .foregroundColor(.gray)
-                    } else {
-                        ForEach(filteredEntries) { entry in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    if let entryDate = entry.date {
-                                        Text(entryDate, formatter: entryDateTimeFormatter)
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                    }
 
 
-                                    Spacer()
-
-                                    Text(moodEmoji(for: Int(entry.mood)))
-                                        .font(.title2)
-                                }
-                                Text(entry.text ?? "")
-                                    .font(.body)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .onDelete(perform: deleteEntries)
-                    }
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 2) {
-                        Spacer()
-                        Text("Daily Journal")
-                            .font(.largeTitle)
-                            .bold()
-                            .foregroundColor(.primary)
-                        Spacer()
-                        Text(selectedDate, formatter: dateFormatter)
-                            .font(.headline)
-                            .bold()
-                            .foregroundColor(.primary)
-                    }
-                    
-                }
-                
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        isShowingCalendar.toggle()
-                    } label: {
-                        Image(systemName: "calendar")
-                    }
-                    .accessibilityLabel("Select date")
-                }
-            }
-            .sheet(isPresented: $isShowingCalendar) {
-                CalendarSheet(selectedDate: $selectedDate)
-            }
-        }
-    }
-
-    // Helper function to get emoji for mood rating
-    func moodEmoji(for mood: Int) -> String {
-        switch mood {
-        case 1: return "😞"
-        case 2: return "🙁"
-        case 3: return "😐"
-        case 4: return "🙂"
-        case 5: return "😄"
-        default: return "😐"
-        }
-    }
-
-    private func saveEntry() {
-        withAnimation {
-            let newEntry = Entry(context: viewContext)
-            newEntry.id = UUID()
-            newEntry.date = selectedDate
-            newEntry.text = journalText
-            newEntry.mood = selectedMood
-
-            do {
-                try viewContext.save()
-                journalText = ""
-                selectedMood = 3  // Reset mood to neutral
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-
-    private func deleteEntries(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { filteredEntries[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-}
-
-// Calendar modal sheet view
 struct CalendarSheet: View {
     @Binding var selectedDate: Date
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationView {
@@ -226,6 +60,163 @@ struct CalendarSheet: View {
         }
     }
 }
+
+
+struct ContentView: View {
+    @Environment(\.managedObjectContext) private var viewContext
+
+    @FetchRequest(
+        entity: Entry.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \Entry.createdAt, ascending: false)]
+    ) private var allEntries: FetchedResults<Entry>
+
+    @State private var journalText = ""
+    @State private var selectedMood: Int16 = 3
+    @State private var selectedDate = Date()
+    @State private var isShowingCalendar = false
+
+    // Filter entries by the DAY they are for
+    private var filteredEntries: [Entry] {
+        allEntries.filter {
+            guard let entryDate = $0.entryDate else { return false }
+            return Calendar.current.isDate(entryDate, inSameDayAs: selectedDate)
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 16) {
+
+                // 📅 Journal day (changes with calendar)
+                Text(selectedDate, formatter: dateFormatter)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                // 😊 Mood picker
+                HStack {
+                    ForEach(1...5, id: \.self) { mood in
+                        Text(moodEmoji(for: mood))
+                            .font(.largeTitle)
+                            .opacity(selectedMood == mood ? 1 : 0.4)
+                            .onTapGesture {
+                                selectedMood = Int16(mood)
+                            }
+                    }
+                }
+
+                // 📝 Journal editor
+                TextEditor(text: $journalText)
+                    .padding(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.gray.opacity(0.4))
+                    )
+                    .frame(height: 250)
+
+                // 💾 Save button
+                Button(action: saveEntry) {
+                    Text("Save Entry")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(journalText.isEmpty ? Color.gray : Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .disabled(journalText.isEmpty)
+
+                // 📖 Entries list
+                List {
+                    if filteredEntries.isEmpty {
+                        Text("No entries for this day.")
+                            .foregroundColor(.gray)
+                    } else {
+                        ForEach(filteredEntries) { entry in
+                            VStack(alignment: .leading, spacing: 6) {
+
+                                // Written timestamp (REAL)
+                                if let createdAt = entry.createdAt {
+                                    Text("Written \(createdAt, formatter: entryDateTimeFormatter)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                HStack {
+                                    Text(entry.text ?? "")
+                                    Spacer()
+                                    Text(moodEmoji(for: Int(entry.mood)))
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .onDelete(perform: deleteEntries)
+                    }
+                }
+            }
+            .padding()
+            .navigationTitle("Daily Journal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isShowingCalendar.toggle()
+                    } label: {
+                        Image(systemName: "calendar")
+                    }
+                }
+            }
+            .sheet(isPresented: $isShowingCalendar) {
+                CalendarSheet(selectedDate: $selectedDate)
+            }
+        }
+        .dismissKeyboardOnTap()
+
+    }
+
+    // Emoji helper
+    func moodEmoji(for mood: Int) -> String {
+        switch mood {
+        case 1: return "😞"
+        case 2: return "🙁"
+        case 3: return "😐"
+        case 4: return "🙂"
+        case 5: return "😄"
+        default: return "😐"
+        }
+    }
+
+    // Save with TWO dates
+    private func saveEntry() {
+        let newEntry = Entry(context: viewContext)
+        newEntry.id = UUID()
+        newEntry.entryDate = selectedDate      // day the entry is FOR
+        newEntry.createdAt = Date()             // moment it was WRITTEN
+        newEntry.text = journalText
+        newEntry.mood = selectedMood
+
+        try? viewContext.save()
+
+        journalText = ""
+        selectedMood = 3
+    }
+
+    private func deleteEntries(offsets: IndexSet) {
+        offsets.map { filteredEntries[$0] }.forEach(viewContext.delete)
+        try? viewContext.save()
+    }
+}
+extension View {
+    func dismissKeyboardOnTap() -> some View {
+        self.onTapGesture {
+            UIApplication.shared.sendAction(
+                #selector(UIResponder.resignFirstResponder),
+                to: nil,
+                from: nil,
+                for: nil
+            )
+        }
+    }
+}
+
 
 #Preview {
     ContentView()
